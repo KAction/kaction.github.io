@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>3wxsbzgbgf1201i4pdji6rm0dq3y6pkz-2020-02-29_embrace_the_bazaar</title>
+  <style>
+      code{white-space: pre-wrap;}
+      span.smallcaps{font-variant: small-caps;}
+      span.underline{text-decoration: underline;}
+      div.column{display: inline-block; vertical-align: top; width: 50%;}
+  </style>
+  <!--[if lt IE 9]>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv-printshiv.min.js"></script>
+  <![endif]-->
+</head>
+<body>
+<h1 id="embrace-the-bazaar">Embrace the bazaar</h1>
+<p>It has been two months as I resigned as Debian Developer and do not use Debian. Instead, both my work and personal computers run Nix on top of very minimal installation of other distribution. This distribution happen to be Void Linux, but it is not of essence.</p>
+<p>Nix enables me to describe state of 99% of system – both executables and configuration files – with simple, but powerful programming language. There can’t be leftovers from deployment of previous system version and I always know what exactly that previous version is. For me, upgrade from misery of traditional package managers like <code>dpkg</code> or <code>rpm</code> to Nix feels as significant as upgrade from mouse-driven file manager to endless power of command line.</p>
+<p>Adjusting software to personal needs with Nix is significantly simpler than with traditional package manager. For example, rebuilding and publishing Debian package with one extra patch applied requires setting up web server, managing cryptographic keys and manual intervention every time there is new release of official package. With Nix it is as simple as adding following lines into <code>~/.config/nixpkgs/overlays.nix</code>:</p>
+<pre><code>foo = super.foo.overrideAttrs (old: {
+  patches = old.patches ++ [ ./my_personal.patch ];
+});</code></pre>
+<p>There is no need to do anything on new “official” package release: as long as <code>my_personal.patch</code> applies and compiles, everything works smoothly. This fact has much more profound consequences that meets the eye.</p>
+<p>With traditional package managers, either your patch is present in official package, or you have to do a lot of work to make version of software with your patch applied first-class citizen of software management. It grants both upstream maintainer and official package maintainer power over you.</p>
+<p>Additionally, expectation that there must be one true and official repository pressures upstream maintainer to include as much features as possible to create single version that would fit everybody, contributing to ubiquitous software bloat.</p>
+<p>For long time I believed that modern Free Software is Bazaar, because we develop software publicly. I was wrong, I was missing the whole point. We still were building cathedral, it is just this time basement was on GitHub.</p>
+<p>Nix makes real Bazaar practical. Embrace the Bazaar!</p>
+<p>PS. This article is heavily inspired by this<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a> eye-opening article. I strongly suggest you to read it.</p>
+<section class="footnotes" role="doc-endnotes">
+<hr />
+<ol>
+<li id="fn1" role="doc-endnote"><p><a href="https://drewdevault.com/2019/05/24/What-is-a-fork.html" class="uri">https://drewdevault.com/2019/05/24/What-is-a-fork.html</a><a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section>
+</body>
+</html>

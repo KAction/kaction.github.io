@@ -1,0 +1,788 @@
+<?xml version="1.0"?>
+<rss version="2.0">
+	<channel>
+		<title>~kaction</title>
+		<link>http://www.kaction.cc</link>
+		<description>Log of die-hard UNIX veteran in age of web >= 2.0</description>
+		<language>en-us</language>
+		<copyright>Copyright 2018-2020 Dmitry Bogatov</copyright>
+		<managingEditor>kaction@disroot.org</managingEditor>
+		<webMaster>kaction@disroot.org</webMaster>
+  <item>
+    <title>2020-06-10_on_how_to_notify_parent.html</title>
+    <link>https://kaction.cc/posts/2020-06-10_on_how_to_notify_parent.html</link>
+    <guid>https://kaction.cc/posts/2020-06-10_on_how_to_notify_parent.html-2</guid>
+    <description>
+      About notifying parent process
+==============================
+
+Some time ago I decided to add to my preferred pdf viewer[^1] feature to
+save and restore current page between program invocations. It already
+had command line option to open file at specified page, but provided no
+simple way to know at what was current page when it exited.
+
+I found variable that contains page number quickly, but how do I return
+its value to parent process? Standard streams were already used for
+something else, so after some though I found elegant (I think) solution:
+write page number to non-standard file descriptor[^2]:
+
+````
+dprintf(4, &quot;%d\n&quot;, num);
+````
+
+If that file descriptor is not open, nothing happens -- function call
+silently fails. If parent setup this descriptor to be output side of a
+pipe, parent will be able to read value from input side of that pipe.
+That is exactly what I did when implementing wrapper that saves and
+restores current page[^3].
+
+After that I recalled that the most common reason software links with
+libsystem is desire to notify systemd that service finished
+initialization, e.g:
+
+````c
+init();
+sd_notify(1, &quot;READY=1&quot;)
+while (1) {
+  process_incoming_request();
+}
+````
+
+I have never seen situation when this is actually needed, but that is
+not the point. Point is that in many, many cases libsystemd could have
+been replaced with just at convention of notifications being written to
+a well-known file descriptor.
+
+Simple, lightweight and non-invasive. Properties that are at odds with
+systemd project agenda.
+
+ [^1]: &lt;https://github.com/aligrudi/fbpdf&gt;
+ [^2]: &lt;https://git.sr.ht/~kaction/config/tree/17da553310d73b2fa8f29b3d4fdbf9b5dd12fdef/nixpkgs/overlays.d/staging.d/fbpdf/patches/current-page.patch&gt;
+ [^3]: &lt;https://git.sr.ht/~kaction/savepage/tree/af884e3e9b924fc4358e0634011824dda63258c7/savepage.exec#L26&gt;
+    </description>
+  </item>
+  <item>
+    <title>2020-04-12_discourse-of-debian.html</title>
+    <link>https://kaction.cc/posts/2020-04-12_discourse-of-debian.html</link>
+    <guid>https://kaction.cc/posts/2020-04-12_discourse-of-debian.html-2</guid>
+    <description>
+      Debian attempts to move from mailing list
+=========================================
+
+Leader of GNOME foundation, Neil McGovern, proposed[^1] to start
+replacing mailing lists with piece of web shit, called Discourse[^2]:
+
+&gt;   I think debian-user, debian-vote and possibly debian-project would
+&gt;   be better off in Discourse. I think debian-devel-announce should
+&gt;   stay as an email list (for now):
+
+He isn't even shy to plainly state that the main reason for the change
+is censorship:
+
+&gt;   First, is moderation. Discourse has built in tools to allow
+&gt;   community moderation on a much better scale than our email lists.
+
+Sure, he also don't hesitate to exploit newcomers motive:
+
+&gt;   Secondly, I genuinely believe that ease of access to new
+&gt;   contributors is of paramount importance to the project.
+
+In short, Debian communication methods are to move new platform, more
+convenient for censorship by self-declared CoC peacemakers and more
+familiar for generation of clueless &quot;programmers&quot;, who may not even know
+how to use command line, at expense of more experienced and skilled
+developers.
+
+What the hell is going on? We don't need more of clueless, soft-skin
+pseudo-programmers, who are going to cry every time they are pointed at
+who they are. On opposite, we need more of harsh trials, by fire, by
+manpage, by SIGSEGV, by mail client. Community of those who pass these
+trials -- hardened, determined, reasonable adult hackers -- is not going
+to need code of conduct and its peacekeepers.
+
+Nothing can be done now. Decay of Debian passed point of no return. I
+have nothing to do with Debian today, yet somewhy it hurts badly.
+
+ [^1]: &lt;https://lists.debian.org/debian-project/2020/04/msg00074.html&gt;
+ [^2]: &lt;https://www.discourse.org&gt;
+    </description>
+  </item>
+  <item>
+    <title>2020-03-27_compiling_c_to_fasm.html</title>
+    <link>https://kaction.cc/posts/2020-03-27_compiling_c_to_fasm.html</link>
+    <guid>https://kaction.cc/posts/2020-03-27_compiling_c_to_fasm.html-2</guid>
+    <description>
+      Compiling C to FASM
+-------------------
+
+It is well-known that programs written in assembler are much smaller
+than programs of same functionality written in high-level language, such
+as C. Convenience and portability has their price.
+
+I want to talk about way to sacrifice portability (x86 &amp; x86\_64 only)
+to drastically reduce code size. Given that today most computers of that
+architecture are overpowered -- at least 512Mb of RAM and many gigabytes
+of disk storage -- this is not going to be life-changer, yet I am
+surprised that I have never saw it before.
+
+Let us talk about this simple program that exits with code specified on
+command line:
+
+````
+#include &lt;inttypes.h&gt;
+
+int64_t s2uint(const unsigned char *s)
+{
+	uint64_t res = 0;
+	unsigned char c;
+
+
+	for (; c = *s; s++) {
+		c -= '0';
+		if (c &gt; 9) {
+			return -1;
+		}
+		res = 10 * res + c;
+	}
+
+	return res;
+}
+
+int main(int argc, char **argv)
+{
+	if (argc != 2)
+		return -1;
+	return s2uint(argv[1]);
+}
+````
+
+Even compiled with size optimization, linked with musl[^1] C library
+instead of glibc[^2] and stripped, resulting binary is around 13Kb.
+Sure, you can't just dump raw instruction opcodes into file and call it
+a day, ELF format has its overhead, but 13Kb overhead for barely 100
+bytes of code?!
+
+What we are going to do to is ask compiler to just output assembler code for
+these functions. Compilers are good at compiling, but we'd rather do linking
+ourself. We will use fasm[^3] assembler for that.
+
+Unfortunately, syntax of assembler file generated by neither GCC nor
+clang is fully compatible with fasm, so some minor automatic
+post-processing is required. After that we need to write a tiny bit of
+assembler code.
+
+````
+include &quot;out/cc/s2uint.fasm&quot;
+include &quot;out/cc/exit.fasm&quot;
+
+entry $
+	mov rdi, [rsp]
+	lea rsi, [rsp + 8]
+	call main
+	mov edi, eax
+	mov eax, sys_exit
+	syscall
+````
+
+It forwards command line arguments to main function and after it
+returns, invokes &quot;exit&quot; system call with appropriate argument. Our
+result is 201 byte. We managed reduce program size by factor 26.
+
+Of course, it all went smoothly because our program did not use any
+functions from standard library. Otherwise we would have to untangle
+them from sources of standard library, and they never were intended for
+that. I am yet to discover how much work it will be to compile some
+real application, like text browser or git this way.
+
+What I described is crude hack. It is shame that after decades of
+theoretical research and practical engineering of optimizing compilers,
+none of them is capable to generate binary of size even remotely close
+to optimal. See elaborate comparison here[^4]
+
+ [^1]: &lt;https://musl.libc.org/&gt;
+ [^2]: &lt;https://www.gnu.org/software/libc/&gt;
+ [^3]: &lt;https://flatassembler.net&gt;
+ [^4]: &lt;https://drewdevault.com/2020/01/04/Slow.html&gt;
+    </description>
+  </item>
+  <item>
+    <title>2020-02-29_embrace_the_bazaar.html</title>
+    <link>https://kaction.cc/posts/2020-02-29_embrace_the_bazaar.html</link>
+    <guid>https://kaction.cc/posts/2020-02-29_embrace_the_bazaar.html-2</guid>
+    <description>
+      Embrace the bazaar
+==================
+
+It has been two months as I resigned as Debian Developer and do not use
+Debian. Instead, both my work and personal computers run Nix on top of
+very minimal installation of other distribution. This distribution
+happen to be Void Linux, but it is not of essence.
+
+Nix enables me to describe state of 99% of system -- both executables
+and configuration files -- with simple, but powerful programming language.
+There can't be leftovers from deployment of previous system version and
+I always know what exactly that previous version is. For me, upgrade
+from misery of traditional package managers like `dpkg` or `rpm` to Nix
+feels as significant as upgrade from mouse-driven file manager to
+endless power of command line.
+
+Adjusting software to personal needs with Nix is significantly simpler
+than with traditional package manager. For example, rebuilding and
+publishing Debian package with one extra patch applied requires setting
+up web server, managing cryptographic keys and manual intervention every
+time there is new release of official package. With Nix it is as simple
+as adding following lines into `~/.config/nixpkgs/overlays.nix`:
+
+````
+foo = super.foo.overrideAttrs (old: {
+  patches = old.patches ++ [ ./my_personal.patch ];
+});
+````
+
+There is no need to do anything on new &quot;official&quot; package release: as
+long as `my_personal.patch` applies and compiles, everything works
+smoothly. This fact has much more profound consequences that meets the
+eye.
+
+With traditional package managers, either your patch is present in
+official package, or you have to do a lot of work to make version of
+software with your patch applied first-class citizen of software
+management. It grants both upstream maintainer and official package
+maintainer power over you.
+
+Additionally, expectation that there must be one true and official
+repository pressures upstream maintainer to include as much features as
+possible to create single version that would fit everybody, contributing
+to ubiquitous software bloat.
+
+For long time I believed that modern Free Software is Bazaar, because we
+develop software publicly. I was wrong, I was missing the whole point.
+We still were building cathedral, it is just this time basement was on
+GitHub.
+
+Nix makes real Bazaar practical. Embrace the Bazaar!
+
+PS. This article is heavily inspired by this[^1] eye-opening article. I
+    strongly suggest you to read it.
+
+[^1]: &lt;https://drewdevault.com/2019/05/24/What-is-a-fork.html&gt;
+    </description>
+  </item>
+  <item>
+    <title>2020-02-14_managing_system_files_with_nix.html</title>
+    <link>https://kaction.cc/posts/2020-02-14_managing_system_files_with_nix.html</link>
+    <guid>https://kaction.cc/posts/2020-02-14_managing_system_files_with_nix.html-2</guid>
+    <description>
+      Managing system files with Nix
+------------------------------
+
+It is possible to have derivation that builds some file for system
+directory in your `~/.config/nixpkgs/overrides`. It is more complicated
+than managing user personal files, but still major improvement over
+manual editing.
+
+For example, I can build `/var/service/user` service directory for
+system-wide `runit` installation with following command:
+
+    $ nix-build '&lt;nixpkgs&gt;' -A system.sv-user -o /tmp/sv-user
+
+After that I move generated link to intended location in system
+directory, like following:
+
+    $ doas cp -vf /tmp/sv-user /var/service/user
+
+Next, it is necessary to register final destination as Nix garbage
+collection root, otherwise the link will become dangling after garbage
+collection, which can be triggered by unprivileged user.
+
+    $ nix-store --add-root /var/service/user -r --indirect
+
+When you update derivation for system-wide file, these three steps must
+to be performed again.
+
+It can be noted that this poor-man implementation of what
+`nixos-rebuild` in NixOS does.  Unfortunately, NixOS depends on systemd
+heavily, and my experience suggests that it is much simplier to add
+missing feature to sound base system than eradicate bloatware specially
+designed to make it almost impossible.
+    </description>
+  </item>
+  <item>
+    <title>2020-01-22_about_single-user_nix_installation.html</title>
+    <link>https://kaction.cc/posts/2020-01-22_about_single-user_nix_installation.html</link>
+    <guid>https://kaction.cc/posts/2020-01-22_about_single-user_nix_installation.html-2</guid>
+    <description>
+      About single-user Nix installation
+==================================
+
+Nix[^1]is awesome. Compared to traditional package managers, like `yum`,
+`portage` or `apt`, it is quality of life improvement. And it is easy to
+install in parallel to existing system, using this[^2] script. This
+script creates single-user installation, where all files are owned by
+your regular user.
+
+Such setup is fine as long you only want to install pre-built software
+that is part of Nixpkgs collection, but once you decide to go deeper and
+write your own package definitions (so called derivations), I strongly
+recommend to switch to client-server setup.
+
+Once wonderful property of Nix is that built packages are never
+modified, which makes rollbacks to previous version easy. But in case of
+single-user setup, there is nothing to stop you (or, more likely, your
+build script) from accidentally modifying files that are supposed to be
+read-only. Been there, done that, never again.
+
+By the way, if you already have corrupted your Nix installation, here is
+remedy:
+
+    $ nix-store --verify --check-contents --repair
+
+Client-server setup provides safety net for such accidents: every build
+process is run as separate non-privileged user. Assuming that you
+already have single-user setup, switching to client-server is simple:
+
+1. Change owner of /nix to root:
+
+   &gt; \# chown -R root:root /nix
+
+2. Create build group and build users:
+
+   &gt; \# addgroup nixbld
+   &gt; \# adduser -S nixbld1 nixbld
+   &gt; \# adduser -S nixbld2 nixbld
+
+   Nix daemon uses users of `nixbld` group to perform parallel build
+   of different derivation. Ten users should be more than enough.
+
+3. Make sure you have `NIX_REMOTE` environment variable set to value
+   `daemon`. Following line in `~/.profile` would suffice:
+
+   &gt; export NIX\_REMOTE=daemon
+
+4. Start Nix daemon somehow. If your distribution uses `runit`, runscipt
+   for Nix daemon is simple:
+
+   ~~~~
+   #!/bin/sh
+   NIX=/nix/store/wm0vhf0805a7pvqv4adyfjfa2bxm04ax-nix-2.3.2/
+   export NIX\_SSL\_CERT\_FILE=/etc/ssl/cert.pem
+   export SSL\_CERT\_FILE=/etc/ssl/cert.pem
+   exec ${NIX}/bin/nix-daemon
+   ~~~~
+
+   The hash part `wm0vhf...` corresponds to latest version of Nix at
+   time of writing on amd64 architecture. Minor adjustments may be
+   needed.
+
+   If your distribution uses `openrc` init system, init script is very
+   similar:
+
+   ~~~~
+   #!/sbin/openrc-run
+   NIX=/nix/store/wm0vhf0805a7pvqv4adyfjfa2bxm04ax-nix-2.3.2/
+   export NIX\_SSL\_CERT\_FILE=/etc/ssl/cert.pem
+   export SSL\_CERT\_FILE=/etc/ssl/cert.pem
+
+   unset NIX\_REMOTE # VERY IMPORTANT
+
+   command=$NIX/bin/nix-daemon
+   command\_background=true
+   pidfile=/run/nix-daemon.pid
+   ~~~~
+
+It is *essential* to make sure that Nix daemon does not inherit
+`NIX_REMOTE` variable from your environment, otherwise it will try to
+connect to itself instead of actually doing work.
+
+If you see that Nix daemon endlessly spawns more processes, that is
+probably the cause.  I am not sure whether it is bug in Nix or in
+concept of init.d scripts.
+
+  [^1]: https://nixos.org
+  [^2]: https://nixos.org/nix/download.html
+    </description>
+  </item>
+  <item>
+    <title>2019-12-28_tragedy_in_debian.html</title>
+    <link>https://kaction.cc/posts/2019-12-28_tragedy_in_debian.html</link>
+    <guid>https://kaction.cc/posts/2019-12-28_tragedy_in_debian.html-2</guid>
+    <description>
+      Tragedy in Debian, my tragedy
+=============================
+
+The latest General Resolution in Debian is over. Systemd is officially
+the only supported init system, everything else is &quot;exploring
+alternatives&quot;. I already wrote[^1], why in fact it means lack of any
+(sane) alternative.
+
+Debian betrayed its own heritage, betrayed Unix spirit, and gave in to
+siren song of oblivious nemesis -- Red Hat company. Debian decided to
+welcome clueless and banish hackerdom.
+
+I should have seen it coming. It started five years ago, when systemd
+became default init system, but resolution of techinical comitete gave
+hope. And I gladly swallowed it, since it was the only hope.
+
+Debian has favored GitLab because of its clicky-clicky interface,
+because it is so nice to those who did not bothered to learn git. Nobody
+cares that it is inconvenient for those who did, right[^2]?
+
+Debian adopted &quot;code of conduct&quot; and created &quot;community team&quot;. Not that
+they are harmful by themself, but they are bad signs.
+
+I should have seen it coming, but year ago I sat behind my computer,
+days and night, triaging bugs in src:sysvinit. I thought that if I
+resolve them all... Lesson learned: techincal merits and software design
+means nothing compared to marketing, even if decision makers are
+developers. Debian Developers.
+
+Maybe it is yet another mistake, but I today I choose not to learn who
+exactly did that. I am afraid of learning that all those nice folks,
+with whom I worked and who supported me during my hard times AFK, are
+those who did hold the hammer devastated Debian. I am not ready for
+this knowledge.
+
+For long time Debian was my home and my identification, but no longer. I
+quit. Who am I now? I am yet to discover.
+
+I thank Init Diversity Team, and specially Lorenzo Puliti. Live long and
+prosper.
+
+[^1]: &lt;https://lists.debian.org/debian-vote/2019/12/msg00191.html&gt;
+[^2]: &lt;http://debian.2.n7.nabble.com/Re-Tell-me-about-your-salsa-experience-td4504119.html&gt;
+    </description>
+  </item>
+  <item>
+    <title>2019-09-05_on_new_life.html</title>
+    <link>https://kaction.cc/posts/2019-09-05_on_new_life.html</link>
+    <guid>https://kaction.cc/posts/2019-09-05_on_new_life.html-2</guid>
+    <description>
+      To: debian-private@lists.debian.org
+  , sysvinit@packages.debian.org
+  , tg@mirbsd.de
+Subject: life changed, Debian affected
+--------
+
+[ warn: this email is sent to both private and public list. ]
+
+Hello.
+
+Year ago I escaped my country  due legal threats[^1], left my
+established life-flow behind and fled to the USA. For whole year I had
+no legal right to have a (paid) job, so I had two major occupations --
+legal paperwork and volunteering in Free Software, Debian in particular.
+
+Several days ago I received legal work authorization. So, it is time to
+get $dayjob, pay bills and debts, and set up new life in new unfamiliar
+environment. I expect it to be the most complicated transition I ever
+had and to consume most of 168 hours a week. Hope I will have
+resources to fix RC bugs. I have no idea for how long.
+
+I am looking for a job. If you want to hire me, or know somebody who
+may want to hire me -- please let me know.
+
+So many things left undone, so many projects left unfinished. [^2] The
+biggest of my concerns is sysvinit. Init-diversity team did good job on
+bringing package into good shape lately, but somebody personally have to
+assume the lead -- take control of git and patch-flow, lead discussions
+to resolution and taking heat for that resolution. For some time, it was
+me.  Thorsten Glaser, maybe it will be you who will catch the flag?
+
+ [^1]: https://www.debian.org/News/2017/20170417
+ [^2]: https://avatar.fandom.com/wiki/Wan?file=Wan's_death.png
+    </description>
+  </item>
+  <item>
+    <title>2019-09-05_new_life_ru.html</title>
+    <link>https://kaction.cc/posts/2019-09-05_new_life_ru.html</link>
+    <guid>https://kaction.cc/posts/2019-09-05_new_life_ru.html-2</guid>
+    <description>
+      
+    </description>
+  </item>
+  <item>
+    <title>2019-07-26_on_phone_screening_automating.html</title>
+    <link>https://kaction.cc/posts/2019-07-26_on_phone_screening_automating.html</link>
+    <guid>https://kaction.cc/posts/2019-07-26_on_phone_screening_automating.html-2</guid>
+    <description>
+      Welcome to America. Probably the most startling, to put it mildly, thing about
+job search in America is &quot;phone screening&quot;. Essencially, you are supposed to
+talk to fancy auto-responder, and maybe your recorded speech will be listened
+by a human afterward. Or not.
+
+It is humilating. In more usual procedures, it takes approximately same time to
+apply and to reject, but here you waste tens of minutes with no warranty of
+involvement from another side. I do not know how to fix this social problem,
+so here is something I tried to do from technical side.
+
+Feeding pre-recorded audiofile to microphone is harded then I thought. Really,
+I expected it to be as simple as
+
+```
+$ cat record.wav &gt; /dev/microphone
+```
+
+It is not. The best thing I found is ALSA virtual microphone. Create named fifo
+`/tmp/fifo` and following `~/.asoundrc`:
+
+```
+pcm.foo {
+	type file
+	format &quot;wav&quot;
+	slave.pcm &quot;default&quot;
+	file '/dev/null'
+	infile '/tmp/fifo'
+}
+```
+
+Now, if you output wav file with bitrate 8000 Hz, Mono, sample size of 8 bit to
+`/tmp/fifo`, it can be recovered by `arecord -Dfoo`.
+
+
+There is little practical use of this, though, since neither Firefox nor
+Chromium provide option to use this virtual microphone on microphone-acessing
+websites.  If you know how to make browser to use virtual microphone, please
+email me!
+
+Another approach to phone screening automation would be feeding audiofile to
+phone call on Android. Quick web search have shown that is even less likely to
+succeed: microphone output is not processed by operating system during regular
+calls, changing this would require significant kernel modifications.
+
+So, best thing I found is low-tech solution: have two devices, one to do phone
+call and another to play recorded audio. Quality suffers, but it is still
+automation.
+
+Not on best level, sure.  *Feci quod potui, faciant meliora potentes*.
+    </description>
+  </item>
+  <item>
+    <title>2019-04-22_on_hackability.html</title>
+    <link>https://kaction.cc/posts/2019-04-22_on_hackability.html</link>
+    <guid>https://kaction.cc/posts/2019-04-22_on_hackability.html-2</guid>
+    <description>
+      On hackability
+==============
+
+By definition of free software, you have right to study and modify it,
+you have right to &quot;hack it&quot;. How much effort will it take you to actually
+make changes depends on many factors -- your experience in programming,
+problem the program is solving, and, most importantly, how program was
+designed and implemented.
+
+The harder it is to make a change to a program, the less amount of
+people can do it.
+
+Another facet of hackability is what happens when new version of program
+is released. Will your changes apply cleanly on new version, or will you
+have to hack things again? The harder it is apply changes on new
+version, the less people will undertake this task.
+
+The biggest hammer the free software society have is the right to fork.
+If maintainer of a program does something unreasonable, there is always
+a threat, that other developers will continue development by themself.
+It is considered bad thing to happen, as it splits our forces, and is
+avoided as much, as possible.
+
+But when program is not hackable, when there is no fork threat,
+maintainers of programs can enjoy all benefits of being part of free
+software community, without being responsible to community.
+
+Probably the most prominent examples are &quot;modern&quot; web-browsers
+-- Firefox and Chromium -- and operating system for mobile
+devices Android. These programs have misfeatures, that leak user
+information; not for gain of user, but for gain of program developer.
+It sounds like proprietary software, but it is free software, simply
+most of us do not have enough of computer power to build these programs
+and enough of time to hack on them.
+
+This is why hackability of a program is as important, as legal right to
+execute, study, modify and distribute a program.
+
+And we have problem. Creating elegant, hackable program takes skill,
+maybe even genius, while creating huge amounts of messy code to be
+understood only by those, who work with it fulltime, is easy and
+have all properties &quot;effective corporate managers&quot; infatuated with.
+
+If we care about our freedom, if we want to have free software that is
+effectively free, we must care about hackability and favor hackable
+programs.
+    </description>
+  </item>
+  <item>
+    <title>2019-04-16_not_eternal_not_september.html</title>
+    <link>https://kaction.cc/posts/2019-04-16_not_eternal_not_september.html</link>
+    <guid>https://kaction.cc/posts/2019-04-16_not_eternal_not_september.html-2</guid>
+    <description>
+      Not eternal, not September
+==========================
+
+Recently, I learned about &quot;No more deaths&quot; organization. Its volunteers
+help migrants that run for their lives across the desert by leaving
+food and water at ground. At time of writing, one of volunteers,
+Scott Warren, is facing serious criminal charges[^1] for that.
+
+Also, there is video[^2], where officials are kicking and slashing bottles
+of plain water, bottles that save lives.  Indirectly, they are committing a
+murder. I never understood, how people could be such jerks. And it is
+not just dozen of politicians of dubious ethical values, it is regular
+folks, who are willingly do dirty job. After all, I doubt there was
+penalty for *not* kicking jug of water.
+
+This morning, I understood. I do condemn it, but I do understand it.
+
+There used to be Usenet. It was medium of communication, available only
+to chosen ones -- students of some colleges. It was culture. Be member
+of Usenet meant to pass non-trivial intellectual qualification. In
+September 1993, that garden of Eden was pillaged by hundreds of
+thousands of new, clueless members -- regular users of AOL Internet
+provider. It is easy to see on Twitter, how it ended.
+
+Americans also have culture and values. To be American means to have
+car, house, job and credit history. To be American by this definition,
+is to pass non-trivial wealth qualification. Many migrants do not pass
+this qualification.
+
+The difference is, there are no corpses in Internet, but there are
+plenty of them in desert of Arizona.
+
+ [^1]: &lt;https://www.amnesty.org/en/documents/amr51/0363/2019/en/&gt;
+ [^2]: &lt;http://forms.nomoredeaths.org/i-gave-water-to-migrants-crossing-the-arizona-desert-they-charged-me-with-a-felony&gt;
+    </description>
+  </item>
+  <item>
+    <title>2019-03-18_environment_variables.html</title>
+    <link>https://kaction.cc/posts/2019-03-18_environment_variables.html</link>
+    <guid>https://kaction.cc/posts/2019-03-18_environment_variables.html-2</guid>
+    <description>
+      No more parsing
+===============
+
+  It just occurred to me, that environment variables are not necessary
+  form valid shell variable name. For example,
+  
+~~~
+$ env foo.bar=12 env | grep foo.bar
+foo.bar=12
+~~~
+
+Accessing variables with such unusual names is more elaborate in
+shell -- you have to use `printenv(1)`. In general-purpose
+languages, like C, Perl or Python there is no difference.
+
+It means, that we could replace ini files with envdirs. For example,
+following config file
+
+~~~
+[section1]
+	foo = 12
+	bar = 13
+[section2]
+	foo = 42
+~~~
+
+could be easily represented with following config directory, ready for use by
+`envdir(1)` from daemontools or `chpst -e` from runit suite.
+
+~~~
+/tmp/conf/
+|-- section1.bar
+|-- section1.foo
+`-- section2.foo
+~~~
+
+It is sad, that git did not follow this way, and decided to use ini
+parser instead. Due its technical supremacy, Git project was able to
+do anything in non-convention way and it would be accepted and
+followed.
+    </description>
+  </item>
+  <item>
+    <title>2018-11-23_filtering_email.html</title>
+    <link>https://kaction.cc/posts/2018-11-23_filtering_email.html</link>
+    <guid>https://kaction.cc/posts/2018-11-23_filtering_email.html-2</guid>
+    <description>
+      Filtering email with filter(1)
+==============================
+
+Some time ago I was browsing through list of orphaned Debian packages[^1].  and
+encountered `filter` program with very promising description 
+    </description>
+  </item>
+  <item>
+    <title>2018-10-22_learning_rust.html</title>
+    <link>https://kaction.cc/posts/2018-10-22_learning_rust.html</link>
+    <guid>https://kaction.cc/posts/2018-10-22_learning_rust.html-2</guid>
+    <description>
+      Learning Rust language
+======================
+
+Recently, I decided to learn Rust programming language and even implement some
+not too ambitious, but real project in it. I had two reasons for it:
+
+ * I wanted to have fun. Lua, which I learned to write advanced build systems
+   in tup[^1] gave me no thrill. It is fine imperative language, but with no
+   inspiring ideas, which I have not already seen in Python.
+
+ * As I follow, many new vacancies of Tor Project mention Go/Rust
+   requirement.
+
+  So, let's begin. As usual, if you can't `apt-get` it, either
+  it does not exist or does not deserve attention. In case of rust,
+  everything is there:
+~~~
+# apt-get install rustc cargo rust-doc
+~~~
+
+
+After that, one can browse &lt;file:///usr/share/doc/rust-doc/index.html&gt;, and
+start learning either by tutorial, either by series of examples.  Standard
+library reference is also there. Unfortunatelly, documentation is typeset
+rather poorly; I was forced to use graphical browser.
+
+
+Rust position itself like very safe C, but with high-level
+abstractions, like algebraic data types and type inference to make
+programming comfortable. It feels like C++ done right.
+
+Well, not everything is impeachable. For a language, that claims to be
+replacement for C, simple &quot;hello world&quot; program, yielding 200Kb binary
+is, well, much.
+
+After programming Haskell, any other language feels inexpressive, error-prone
+and repetive. So, if you are okay with huge binaries (tens of megabytes) and
+garbage collector, just use Haskell.
+
+On other hand, if you are considering C++, or even C, maybe it worth
+give Rust a shot. Beside smart idea of borrow-checking, Rust has
+features, that are lacking even in Haskell:
+
+ * Unit tests can be defined in same module, as main code. Rust build tool,
+   `cargo` is smart enough to locate and run them during build, but to exclude
+   them from release binary.
+
+ * Rust have rather advanced type system, compared to C/C++/Java/etc,
+      and its build tool have separate command to just typecheck code,
+      without generating binary. Just typechecking is fast, and still
+      provides valuable information for development.
+
+      Haskell do have this option, but it is buried deep in GHC manual.
+      It is called `-fno-code`, which is definitely not as
+      pleasant, as `cargo check`
+
+  * Cargo builds release and debug versions separately. For
+    compraison, try following with any stack-based Haskell project:
+
+    ~~~
+    $ stack build
+    $ stack build --fast
+    $ stack build
+    ~~~
+
+    Last command will re-compile whole project again!
+
+ [^1]: &lt;http://gittup.org/tup&gt;
+    </description>
+  </item>
+	</channel>
+</rss>

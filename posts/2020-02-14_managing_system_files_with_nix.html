@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>v50br543i7fd3qg96qq94j38a4frbnl8-2020-02-14_managing_system_files_with_nix</title>
+  <style>
+      code{white-space: pre-wrap;}
+      span.smallcaps{font-variant: small-caps;}
+      span.underline{text-decoration: underline;}
+      div.column{display: inline-block; vertical-align: top; width: 50%;}
+  </style>
+  <!--[if lt IE 9]>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv-printshiv.min.js"></script>
+  <![endif]-->
+</head>
+<body>
+<h2 id="managing-system-files-with-nix">Managing system files with Nix</h2>
+<p>It is possible to have derivation that builds some file for system directory in your <code>~/.config/nixpkgs/overrides</code>. It is more complicated than managing user personal files, but still major improvement over manual editing.</p>
+<p>For example, I can build <code>/var/service/user</code> service directory for system-wide <code>runit</code> installation with following command:</p>
+<pre><code>$ nix-build &#39;&lt;nixpkgs&gt;&#39; -A system.sv-user -o /tmp/sv-user</code></pre>
+<p>After that I move generated link to intended location in system directory, like following:</p>
+<pre><code>$ doas cp -vf /tmp/sv-user /var/service/user</code></pre>
+<p>Next, it is necessary to register final destination as Nix garbage collection root, otherwise the link will become dangling after garbage collection, which can be triggered by unprivileged user.</p>
+<pre><code>$ nix-store --add-root /var/service/user -r --indirect</code></pre>
+<p>When you update derivation for system-wide file, these three steps must to be performed again.</p>
+<p>It can be noted that this poor-man implementation of what <code>nixos-rebuild</code> in NixOS does. Unfortunately, NixOS depends on systemd heavily, and my experience suggests that it is much simplier to add missing feature to sound base system than eradicate bloatware specially designed to make it almost impossible.</p>
+</body>
+</html>

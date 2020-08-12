@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>nca9f6ciwxl8sg6dff3icbyrnvddflmk-2019-03-18_environment_variables</title>
+  <style>
+      code{white-space: pre-wrap;}
+      span.smallcaps{font-variant: small-caps;}
+      span.underline{text-decoration: underline;}
+      div.column{display: inline-block; vertical-align: top; width: 50%;}
+  </style>
+  <!--[if lt IE 9]>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv-printshiv.min.js"></script>
+  <![endif]-->
+</head>
+<body>
+<h1 id="no-more-parsing">No more parsing</h1>
+<p>It just occurred to me, that environment variables are not necessary form valid shell variable name. For example,</p>
+<pre><code>$ env foo.bar=12 env | grep foo.bar
+foo.bar=12</code></pre>
+<p>Accessing variables with such unusual names is more elaborate in shell – you have to use <code>printenv(1)</code>. In general-purpose languages, like C, Perl or Python there is no difference.</p>
+<p>It means, that we could replace ini files with envdirs. For example, following config file</p>
+<pre><code>[section1]
+    foo = 12
+    bar = 13
+[section2]
+    foo = 42</code></pre>
+<p>could be easily represented with following config directory, ready for use by <code>envdir(1)</code> from daemontools or <code>chpst -e</code> from runit suite.</p>
+<pre><code>/tmp/conf/
+|-- section1.bar
+|-- section1.foo
+`-- section2.foo</code></pre>
+<p>It is sad, that git did not follow this way, and decided to use ini parser instead. Due its technical supremacy, Git project was able to do anything in non-convention way and it would be accepted and followed.</p>
+</body>
+</html>

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>l367zm6i3qy4cqvifgxh2f416kllm4yx-2018-11-23_filtering_email</title>
+  <style>
+      code{white-space: pre-wrap;}
+      span.smallcaps{font-variant: small-caps;}
+      span.underline{text-decoration: underline;}
+      div.column{display: inline-block; vertical-align: top; width: 50%;}
+  </style>
+  <!--[if lt IE 9]>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv-printshiv.min.js"></script>
+  <![endif]-->
+</head>
+<body>
+<h1 id="filtering-email-with-filter1">Filtering email with filter(1)</h1>
+<p>Some time ago I was browsing through list of orphaned Debian packages<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a>. and encountered <code>filter</code> program with very promising description — “filter is one of the original mail filtering programs written for UNIX”.</p>
+<p>It is much simplier than <code>procmail</code>, its manual page is <em>page</em>, not <em>manual</em>, while supporting almost anything I need:</p>
+<ul>
+<li><p>regex/substring matching of <em>Subject</em>, <em>To</em> and <em>From</em> headers</p></li>
+<li><p>built-in delivery into mboxes and any other develiery method via piping. It is important to me, since I use mmh<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a> mail user agent, which uses its own mail storage format.</p></li>
+<li><p>support of filtering, based on length of message body. Not sure how well it copes with damned “content/alternative” messages.</p></li>
+</ul>
+<p>Syntax of <code>filter</code> rules is much less cryptic and less verbose, than one of <code>procmail</code>. Compare</p>
+<pre><code>if (subject = &quot;Foo&quot;) then save &quot;/tmp/foo.mbox&quot;</code></pre>
+<p>with much more verbose <code>procmail</code> rule.</p>
+<pre><code>:0:
+*^Subject:.*Foo
+/tmp/foo.mbox</code></pre>
+<p>Unfortunately, <code>filter</code> does not provide equivalence of two features of <code>procmail</code>, that are significant to my email workflow:</p>
+<ul>
+<li><p>Matching of arbitrary header. My email provider run SpamAssassin on incoming emails and adds <em>X-Spam-Level</em> header. My <code>procmail</code> configuration uses this header to classify messages as spam. Probably, I could run SpamAssassin locally, but why bother, if settings of my email provider are fine for me.</p></li>
+<li><p>Handling of duplicate email. In cases when people reply to me and add mailing list into carbon copy, I receive two copies of email with same <code>Message-Id</code> header. It is distracting.</p></li>
+</ul>
+<p>Both <code>filter</code> and <code>procmail</code> are long <sub>dead</sub> mature. Source code of <code>filter</code> is twice as short, if you care about such things. Half of that is regular expression engine, that is built it modern implementations of standard C library. Give <code>filter</code> a shot.</p>
+<p>Definitely, <code>filter</code> would benefit from some care. Use standard regular expression engine, add support for <em>X-Spam-Level</em> header and here it is – perfect email filtering solution. Maybe, one day, in my copious free time…</p>
+<section class="footnotes" role="doc-endnotes">
+<hr />
+<ol>
+<li id="fn1" role="doc-endnote"><p><a href="https://bugs.debian.org/wnpp" class="uri">https://bugs.debian.org/wnpp</a><a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn2" role="doc-endnote"><p><a href="http://marmare.de/prog/mmh" class="uri">http://marmare.de/prog/mmh</a><a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section>
+</body>
+</html>

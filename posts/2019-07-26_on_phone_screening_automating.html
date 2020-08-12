@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>wjn3cj3y106x88wf8w42rqjahdf8jjh4-2019-07-26_on_phone_screening_automating</title>
+  <style>
+      code{white-space: pre-wrap;}
+      span.smallcaps{font-variant: small-caps;}
+      span.underline{text-decoration: underline;}
+      div.column{display: inline-block; vertical-align: top; width: 50%;}
+  </style>
+  <!--[if lt IE 9]>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv-printshiv.min.js"></script>
+  <![endif]-->
+</head>
+<body>
+<p>Welcome to America. Probably the most startling, to put it mildly, thing about job search in America is “phone screening”. Essencially, you are supposed to talk to fancy auto-responder, and maybe your recorded speech will be listened by a human afterward. Or not.</p>
+<p>It is humilating. In more usual procedures, it takes approximately same time to apply and to reject, but here you waste tens of minutes with no warranty of involvement from another side. I do not know how to fix this social problem, so here is something I tried to do from technical side.</p>
+<p>Feeding pre-recorded audiofile to microphone is harded then I thought. Really, I expected it to be as simple as</p>
+<pre><code>$ cat record.wav &gt; /dev/microphone</code></pre>
+<p>It is not. The best thing I found is ALSA virtual microphone. Create named fifo <code>/tmp/fifo</code> and following <code>~/.asoundrc</code>:</p>
+<pre><code>pcm.foo {
+    type file
+    format &quot;wav&quot;
+    slave.pcm &quot;default&quot;
+    file &#39;/dev/null&#39;
+    infile &#39;/tmp/fifo&#39;
+}</code></pre>
+<p>Now, if you output wav file with bitrate 8000 Hz, Mono, sample size of 8 bit to <code>/tmp/fifo</code>, it can be recovered by <code>arecord -Dfoo</code>.</p>
+<p>There is little practical use of this, though, since neither Firefox nor Chromium provide option to use this virtual microphone on microphone-acessing websites. If you know how to make browser to use virtual microphone, please email me!</p>
+<p>Another approach to phone screening automation would be feeding audiofile to phone call on Android. Quick web search have shown that is even less likely to succeed: microphone output is not processed by operating system during regular calls, changing this would require significant kernel modifications.</p>
+<p>So, best thing I found is low-tech solution: have two devices, one to do phone call and another to play recorded audio. Quality suffers, but it is still automation.</p>
+<p>Not on best level, sure. <em>Feci quod potui, faciant meliora potentes</em>.</p>
+</body>
+</html>

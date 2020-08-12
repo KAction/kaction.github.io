@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>f9x8dym2dkn8fmlmxacs8fhfvb6gbq36-2018-10-22_learning_rust</title>
+  <style>
+      code{white-space: pre-wrap;}
+      span.smallcaps{font-variant: small-caps;}
+      span.underline{text-decoration: underline;}
+      div.column{display: inline-block; vertical-align: top; width: 50%;}
+  </style>
+  <!--[if lt IE 9]>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv-printshiv.min.js"></script>
+  <![endif]-->
+</head>
+<body>
+<h1 id="learning-rust-language">Learning Rust language</h1>
+<p>Recently, I decided to learn Rust programming language and even implement some not too ambitious, but real project in it. I had two reasons for it:</p>
+<ul>
+<li><p>I wanted to have fun. Lua, which I learned to write advanced build systems in tup<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a> gave me no thrill. It is fine imperative language, but with no inspiring ideas, which I have not already seen in Python.</p></li>
+<li><p>As I follow, many new vacancies of Tor Project mention Go/Rust requirement.</p></li>
+</ul>
+<p>So, let’s begin. As usual, if you can’t <code>apt-get</code> it, either it does not exist or does not deserve attention. In case of rust, everything is there: ~~~ # apt-get install rustc cargo rust-doc ~~~</p>
+<p>After that, one can browse <a href="file:///usr/share/doc/rust-doc/index.html" class="uri">file:///usr/share/doc/rust-doc/index.html</a>, and start learning either by tutorial, either by series of examples. Standard library reference is also there. Unfortunatelly, documentation is typeset rather poorly; I was forced to use graphical browser.</p>
+<p>Rust position itself like very safe C, but with high-level abstractions, like algebraic data types and type inference to make programming comfortable. It feels like C++ done right.</p>
+<p>Well, not everything is impeachable. For a language, that claims to be replacement for C, simple “hello world” program, yielding 200Kb binary is, well, much.</p>
+<p>After programming Haskell, any other language feels inexpressive, error-prone and repetive. So, if you are okay with huge binaries (tens of megabytes) and garbage collector, just use Haskell.</p>
+<p>On other hand, if you are considering C++, or even C, maybe it worth give Rust a shot. Beside smart idea of borrow-checking, Rust has features, that are lacking even in Haskell:</p>
+<ul>
+<li><p>Unit tests can be defined in same module, as main code. Rust build tool, <code>cargo</code> is smart enough to locate and run them during build, but to exclude them from release binary.</p></li>
+<li><p>Rust have rather advanced type system, compared to C/C++/Java/etc, and its build tool have separate command to just typecheck code, without generating binary. Just typechecking is fast, and still provides valuable information for development.</p>
+<p>Haskell do have this option, but it is buried deep in GHC manual. It is called <code>-fno-code</code>, which is definitely not as pleasant, as <code>cargo check</code></p></li>
+<li><p>Cargo builds release and debug versions separately. For compraison, try following with any stack-based Haskell project:</p>
+<pre><code>$ stack build
+$ stack build --fast
+$ stack build</code></pre>
+<p>Last command will re-compile whole project again!</p></li>
+</ul>
+<section class="footnotes" role="doc-endnotes">
+<hr />
+<ol>
+<li id="fn1" role="doc-endnote"><p><a href="http://gittup.org/tup" class="uri">http://gittup.org/tup</a><a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section>
+</body>
+</html>
